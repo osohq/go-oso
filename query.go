@@ -22,7 +22,30 @@ func newQuery(ffiQuery QueryFfi, host Host) Query {
 	}
 }
 
-func (q *Query) Next() (*map[Symbol]interface{}, error) {
+// TODO: add GetAllResults() method
+
+func (q *Query) resultsChannel() (<-chan map[string]interface{}, <-chan error) {
+
+	results := make(chan map[string]interface{}, 1)
+	errors := make(chan error, 1)
+
+	go func() {
+		r, err := q.Next()
+		for r != nil && err == nil {
+			results <- *r
+			r, err = q.Next()
+		}
+		if err != nil {
+			errors <- err
+		}
+		close(results)
+		close(errors)
+	}()
+
+	return results, errors
+}
+
+func (q *Query) Next() (*map[string]interface{}, error) {
 	if q == nil {
 		return nil, fmt.Errorf("query has already finished")
 	}
@@ -46,20 +69,20 @@ func (q *Query) Next() (*map[Symbol]interface{}, error) {
 			return nil, nil
 		case QueryEventDebug:
 			// TODO
-			return nil, fmt.Errorf("not yet implemented")
+			return nil, fmt.Errorf("Polar debugger is not yet implemented in Go.")
 		case QueryEventResult:
-			results := make(map[Symbol]interface{})
+			results := make(map[string]interface{})
 			for k, v := range ev.Bindings {
 				converted, err := q.host.toGo(v)
 				// todo: turn back into interface (after toGo returns reflect.Value)
 				if err != nil {
 					return nil, err
 				}
-				results[k] = converted
+				results[string(k)] = converted
 			}
 			return &results, nil
 		case QueryEventMakeExternal:
-			err = q.handleMakeExternal(ev)
+			return nil, fmt.Errorf("`new` operator is not yet supported in Go.")
 		case QueryEventExternalCall:
 			err = q.handleExternalCall(ev)
 		case QueryEventExternalIsa:
@@ -82,33 +105,6 @@ func (q *Query) Next() (*map[Symbol]interface{}, error) {
 		}
 	}
 
-}
-
-func (q Query) handleMakeExternal(event QueryEventMakeExternal) error {
-	return fmt.Errorf("new operator is not supported in Go")
-	// if constructor, ok := event.Constructor.Value.ValueVariant.(ValueCall); ok {
-	// 	args := make([]interface{}, len(constructor.Args))
-	// 	for idx, arg := range constructor.Args {
-	// 		converted, err := q.host.toGo(arg)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		args[idx] = converted
-	// 	}
-	// 	kwargs := make(map[string]interface{})
-	// 	if constructor.Kwargs != nil {
-	// 		for k, v := range *constructor.Kwargs {
-	// 			converted, err := q.host.toGo(v)
-	// 			if err != nil {
-	// 				return err
-	// 			}
-	// 			kwargs[string(k)] = converted
-	// 		}
-	// 	}
-	// 	_, err := q.host.makeInstance(string(constructor.Name), args, kwargs, event.InstanceId)
-	// 	return err
-	// }
-	// return &InvalidConstructorError{ctor: event.Constructor.Value}
 }
 
 func (q Query) handleExternalCall(event QueryEventExternalCall) error {
@@ -309,30 +305,3 @@ func (q Query) handleNextExternal(event QueryEventNextExternal) error {
 	}
 	return q.ffiQuery.callResult(int(event.CallId), &Term{*retValue})
 }
-
-//     def handle_next_external(self, data):
-//         call_id = data["call_id"]
-//         iterable = data["iterable"]
-
-//         if call_id not in self.calls:
-//             value = self.host.to_python(iterable)
-//             if isinstance(value, Iterable):
-//                 self.calls[call_id] = iter(value)
-//             else:
-//                 raise InvalidIteratorError(f"{value} is not iterable")
-
-//         # Return the next result of the call.
-//         try:
-//             value = next(self.calls[call_id])
-//             self.ffi_query.call_result(call_id, self.host.to_polar(value))
-//         except StopIteration:
-//             self.ffi_query.call_result(call_id, None)
-
-//     def handle_debug(self, data):
-//         if data["message"]:
-//             print(data["message"])
-//         try:
-//             command = input("debug> ").strip(";")
-//         except EOFError:
-//             command = "continue"
-//         self.ffi_query.debug_command(self.host.to_polar(command))

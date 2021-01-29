@@ -18,7 +18,7 @@ type Polar struct {
 
 type none struct{}
 
-func NewPolar() *Polar {
+func NewPolar() (*Polar, error) {
 	ffiPolar := NewPolarFfi()
 	polar := Polar{
 		ffiPolar: ffiPolar,
@@ -27,8 +27,7 @@ func NewPolar() *Polar {
 
 	err := polar.RegisterConstant(none{}, "nil")
 	if err != nil {
-		fmt.Printf(err.Error())
-		return nil
+		return nil, err
 	}
 
 	builtinClasses := map[string]reflect.Type{
@@ -43,13 +42,12 @@ func NewPolar() *Polar {
 	for k, v := range builtinClasses {
 		err := polar.RegisterClass(v, &k)
 		if err != nil {
-			fmt.Printf(err.Error())
-			return nil
+			return nil, err
 		}
 	}
 
 	// register global constants
-	return &polar
+	return &polar, nil
 }
 
 func (p Polar) checkInlineQueries() error {
@@ -138,39 +136,6 @@ func (p Polar) QueryRule(name string, args ...interface{}) (*Query, error) {
 func (p Polar) Repl(files ...string) error {
 	return fmt.Errorf("Go REPL is not yet implemented")
 }
-
-//     def repl(self, files=[]):
-//         """Start an interactive REPL session."""
-//         for f in files:
-//             self.load_file(f)
-
-//         while True:
-//             try:
-//                 query = input(FG_BLUE + "query> " + RESET).strip(";")
-//             except (EOFError, KeyboardInterrupt):
-//                 return
-//             try:
-//                 ffi_query = self.ffi_polar.new_query_from_str(query)
-//             except ParserError as e:
-//                 print_error(e)
-//                 continue
-
-//             result = False
-//             try:
-//                 query = Query(ffi_query, host=self.host.copy()).run()
-//                 for res in query:
-//                     result = True
-//                     bindings = res["bindings"]
-//                     if bindings:
-//                         for variable, value in bindings.items():
-//                             print(variable + " = " + repr(value))
-//                     else:
-//                         print(True)
-//             except PolarRuntimeError as e:
-//                 print_error(e)
-//                 continue
-//             if not result:
-//                 print(False)
 
 func (p Polar) RegisterClass(cls reflect.Type, name *string) error {
 	var className string
