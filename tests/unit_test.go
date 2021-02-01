@@ -5,7 +5,10 @@ import (
 	"testing"
 
 	oso "github.com/osohq/go-oso"
+	. "github.com/osohq/go-oso/types"
 )
+
+// TEST oso.go
 
 func TestNewOso(t *testing.T) {
 	if o, err := oso.NewOso(); err != nil {
@@ -97,7 +100,7 @@ func TestQueryRule(t *testing.T) {
 	}
 
 	o.LoadString("f(1, 2);")
-	results, errors := o.QueryRule("f", oso.ValueVariable("x"), oso.ValueVariable("y"))
+	results, errors := o.QueryRule("f", ValueVariable("x"), ValueVariable("y"))
 
 	if err = <-errors; err != nil {
 		t.Error(err.Error())
@@ -121,13 +124,21 @@ func TestQueryRule(t *testing.T) {
 		t.Error("Expected Polar runtime error, got none")
 	}
 
-	o.LoadString("h(x) if h = 1; h(x) if h.Fake();")
+	o.LoadString("h(x) if x = 1; h(x) if x.Fake();")
 	results, errors = o.QueryRule("h", 1)
 	if r := <-results; !reflect.DeepEqual(r, map[string]interface{}{}) {
 		t.Error("Expected result, got none")
 	}
 	if e := <-errors; e == nil {
 		t.Error("Expected Polar runtime error, got none")
+	}
+
+	results, errors = o.QueryRule("v", 1)
+	if r := <-results; r != nil {
+		t.Error("Got result; expected none")
+	}
+	if e := <-errors; e != nil {
+		t.Error(e)
 	}
 
 }
@@ -153,3 +164,5 @@ func TestIsAllowed(t *testing.T) {
 	}
 
 }
+
+// TEST polar.go

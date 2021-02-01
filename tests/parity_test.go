@@ -10,6 +10,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/osohq/go-oso/interfaces"
+	"github.com/osohq/go-oso/internal/host"
+	. "github.com/osohq/go-oso/types"
+
 	yaml "github.com/goccy/go-yaml"
 	"github.com/google/go-cmp/cmp"
 	oso "github.com/osohq/go-oso"
@@ -106,21 +110,6 @@ func (u Constructor) String() string {
 	return "Constructor"
 }
 
-// func NewConstructor(args ...interface{}) Constructor {
-// 	Args := make([]interface{}, len(args))
-// 	for idx, v := range args {
-// 		Args[idx] = v
-// 	}
-// 	return Constructor{
-// 		Args:   Args,
-// 		Kwargs: make(map[string]interface{}),
-// 	}
-// }
-
-// func (c Constructor) numArgs() int {
-// 	return len(c.Args)
-// }
-
 func (c Constructor) NumKwargs() int {
 	return len(map[string]interface{}(c))
 }
@@ -148,53 +137,20 @@ func (m MethodVariants) SumInputArgs(args ...int) int {
 	return sum
 }
 
-func (MethodVariants) GetIter() oso.Iterator {
+func (MethodVariants) GetIter() interfaces.Iterator {
 	return IterableClass{Elems: NewValueFactory().ListAttr}
 }
 
-func (MethodVariants) GetEmptyIter() oso.Iterator {
+func (MethodVariants) GetEmptyIter() interfaces.Iterator {
 	return IterableClass{}
 }
-
-//     def is_key_in_kwargs(self, key, **kwargs):
-//         return key in kwargs
-
-//     def set_x_or_y(self, x=1, y=2):
-//         return [x, y]
-
-//     def get_generator(self):
-//         yield from iter(ValueFactory.list_attr)
-
-//     def get_empty_generator(self):
-//         yield from iter([])
 
 // TODO: I don't think these make sense. Maybe as interfaces?
 type ParentClass struct{}
 
-// class ParentClass:
-//     def inherit_parent(self):
-//         return "parent"
-
-//     def override_parent(self):
-//         return "parent"
-
 type ChildClass struct{}
 
-// class ChildClass(ParentClass):
-//     def inherit_child(self):
-//         return "child"
-
-//     def override_parent(self):
-//         return "child"
-
 type GrandchildClass struct{}
-
-// class GrandchildClass(ChildClass):
-//     def inherit_grandchild(self):
-//         return "grandchild"
-
-//     def override_parent(self):
-//         return "grandchild"
 
 type Animal struct {
 	Species string
@@ -218,10 +174,10 @@ func (u ImplementsEq) String() string {
 	return fmt.Sprintf("ImplementsEq { %v }", u.Val)
 }
 
-func (left ImplementsEq) Equal(right oso.Comparer) bool {
+func (left ImplementsEq) Equal(right interfaces.Comparer) bool {
 	return left.Val == right.(ImplementsEq).Val
 }
-func (left ImplementsEq) Lt(right oso.Comparer) bool {
+func (left ImplementsEq) Lt(right interfaces.Comparer) bool {
 	panic("unsupported")
 }
 
@@ -237,14 +193,14 @@ func (u Comparable) String() string {
 	return fmt.Sprintf("Comparable { %v }", u.Val)
 }
 
-func (a Comparable) Equal(b oso.Comparer) bool {
+func (a Comparable) Equal(b interfaces.Comparer) bool {
 	if other, ok := b.(Comparable); ok {
 		return a.Val == other.Val
 	}
 	panic(fmt.Sprintf("cannot compare Comparable with %v", b))
 }
 
-func (a Comparable) Lt(b oso.Comparer) bool {
+func (a Comparable) Lt(b interfaces.Comparer) bool {
 	if other, ok := b.(Comparable); ok {
 		return a.Val < other.Val
 	}
@@ -271,7 +227,7 @@ func setStructFields(instance reflect.Value, args []interface{}) error {
 		if !f.IsValid() {
 			return fmt.Errorf("Cannot set field #%v", idx)
 		}
-		err := oso.SetFieldTo(f, arg)
+		err := host.SetFieldTo(f, arg)
 		if err != nil {
 			return err
 		}
@@ -285,7 +241,7 @@ func setMapFields(instance reflect.Value, kwargs map[string]interface{}) error {
 		if !f.IsValid() {
 			return fmt.Errorf("Cannot set field %v", k)
 		}
-		err := oso.SetFieldTo(f, v)
+		err := host.SetFieldTo(f, v)
 		if err != nil {
 			return err
 		}
@@ -312,7 +268,7 @@ func instantiateClass(class reflect.Type, args []interface{}, kwargs map[string]
 		if len(kwargs) != 0 {
 			return nil, fmt.Errorf("Cannot assign kwargs to a class of type: %s", class.Kind())
 		}
-		err := oso.SetFieldTo(instance, args)
+		err := host.SetFieldTo(instance, args)
 		if err != nil {
 			return nil, err
 		}
@@ -320,7 +276,7 @@ func instantiateClass(class reflect.Type, args []interface{}, kwargs map[string]
 		if len(args) != 0 {
 			return nil, fmt.Errorf("Cannot assign args to a class of type: %s", class.Kind())
 		}
-		err := oso.SetFieldTo(instance, kwargs)
+		err := host.SetFieldTo(instance, kwargs)
 		if err != nil {
 			return nil, err
 		}
@@ -367,7 +323,7 @@ func NewResult(input interface{}) Result {
 		return Result{result}
 	case uint64:
 		// standardise uints to ints
-		return Result{inner: int64(inputVal)}
+		return Result{inner: inputVal}
 	default:
 		return Result{input}
 	}
@@ -385,7 +341,7 @@ func (left Result) Equal(right interface{}) bool {
 	return cmp.Equal(left.inner, right)
 }
 
-func toInput(o oso.Polar, v interface{}, t *testing.T) interface{} {
+func toInput(v interface{}, t *testing.T) interface{} {
 	if vMap, ok := v.(map[string]interface{}); ok {
 		if ty, ok := vMap["type"]; ok {
 			class := CLASSES[ty.(string)]
@@ -407,7 +363,7 @@ func toInput(o oso.Polar, v interface{}, t *testing.T) interface{} {
 			return instance
 		}
 		if v, ok := vMap["var"]; ok {
-			return oso.ValueVariable(v.(string))
+			return ValueVariable(v.(string))
 		}
 	}
 	return v
@@ -435,9 +391,9 @@ func String(s string) *string {
 	return &s
 }
 
-func (tc TestCase) setupTest(o oso.Polar, t *testing.T) error {
+func (tc TestCase) setupTest(o oso.Oso, t *testing.T) error {
 	for k, v := range CLASSES {
-		err := o.RegisterClass(v, &k)
+		err := o.RegisterClassWithName(v, k)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -483,27 +439,26 @@ func (tc TestCase) RunTest(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			name := t.Name()
 			_ = name
-			var o oso.Polar
-			if oPtr, err := oso.NewPolar(); err != nil {
-				t.Fatalf("Failed to setup Polar: %s", err.Error())
-			} else {
-				o = *oPtr
+			var o oso.Oso
+			var err error
+			if o, err = oso.NewOso(); err != nil {
+				t.Fatalf("Failed to setup Oso: %s", err.Error())
 			}
-			err := tc.setupTest(o, t)
+			err = tc.setupTest(o, t)
 			if err != nil {
 				t.Fatal(err)
 			}
 			var testQuery *oso.Query
 			var queryErr error
 			if c.Inputs == nil {
-				testQuery, queryErr = o.QueryStr(c.Query)
+				testQuery, queryErr = o.NewQueryFromStr(c.Query)
 			} else {
 				Inputs := make([]interface{}, len(*c.Inputs))
 				for idx, v := range *c.Inputs {
-					input := toInput(o, v, t)
+					input := toInput(v, t)
 					Inputs[idx] = input
 				}
-				testQuery, queryErr = o.QueryRule(c.Query, Inputs...)
+				testQuery, queryErr = o.NewQueryFromRule(c.Query, Inputs...)
 			}
 
 			expectedResults := make([]map[string]Result, 0)
@@ -519,20 +474,11 @@ func (tc TestCase) RunTest(t *testing.T) {
 				queryErr = o.LoadString(*c.Load)
 			}
 
-			results := make([]map[string]interface{}, 0)
+			var results []map[string]interface{}
 			if queryErr == nil {
-				for {
-					v, err := testQuery.Next()
-					if err != nil {
-						queryErr = err
-						break
-					}
-					if v == nil {
-						break
-					}
-					results = append(results, *v)
-				}
+				results, queryErr = testQuery.GetAllResults()
 			}
+
 			if c.Err != nil {
 				if queryErr != nil {
 					re, err := regexp.Compile(*c.Err)
