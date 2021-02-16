@@ -1,0 +1,25 @@
+name: Publish
+on:
+  repository_dispatch:
+    types: [oso_publish]
+
+jobs:
+  publish:
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: go-oso
+      - run: |
+          curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/octet-stream" $(curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -s https://api.github.com/repos/osohq/oso/releases/tags/v${{ github.event.inputs.version }} | jq -r '.assets[] | select(.name == "go-oso-${{ github.event.client_payload.version }}.zip") | .url') --output go-oso-${{ github.event.client_payload.version }}.zip
+      - run: unzip go-oso-${{ github.event.client_payload.version }}.zip -d oso-lib-${{ github.event.client_payload.version }}
+      - run: cp -r go-oso-${{ github.event.client_payload.version }}/* go-oso/
+      - name: commit and tag
+        uses: EndBug/add-and-commit@v5
+        with:
+          author_name: "osohq"
+          message: "v${{ github.event.client_payload.version }}"
+          cwd: go-oso
+          tag: "v${{ github.event.client_payload.version }} --force"
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
