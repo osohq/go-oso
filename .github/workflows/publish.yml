@@ -11,7 +11,7 @@ jobs:
         with:
           path: go-oso
       - run: |
-          curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/octet-stream" $(curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -s https://api.github.com/repos/osohq/oso/releases/tags/v${{ github.event.inputs.version }} | jq -r '.assets[] | select(.name == "go-oso-${{ github.event.client_payload.version }}.zip") | .url') --output go-oso-${{ github.event.client_payload.version }}.zip
+          curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/octet-stream" $(curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -s https://api.github.com/repos/osohq/oso/releases/tags/v${{ github.event.client_payload.version }} | jq -r '.assets[] | select(.name == "go-oso-${{ github.event.client_payload.version }}.zip") | .url') --output go-oso-${{ github.event.client_payload.version }}.zip
       - run: unzip go-oso-${{ github.event.client_payload.version }}.zip -d oso-lib-${{ github.event.client_payload.version }}
       - run: cp -r go-oso-${{ github.event.client_payload.version }}/* go-oso/
       - name: commit and tag
