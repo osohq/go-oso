@@ -3,14 +3,18 @@
 package oso
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 
 	"github.com/osohq/go-oso/errors"
 	"github.com/osohq/go-oso/internal/ffi"
 	"github.com/osohq/go-oso/internal/host"
+	"github.com/osohq/go-oso/internal/util"
 	. "github.com/osohq/go-oso/types"
 )
 
@@ -135,7 +139,46 @@ func (p Polar) queryRule(name string, args ...interface{}) (*Query, error) {
 }
 
 func (p Polar) repl(files ...string) error {
-	return fmt.Errorf("Go REPL is not yet implemented")
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Print("query> ")
+		text, err := reader.ReadString('\n')
+		if err == io.EOF {
+			return nil
+		}
+		text = util.QueryStrip(text)
+
+		ffiQuery, err := p.ffiPolar.NewQueryFromStr(text)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		query := newQuery(*ffiQuery, p.host.Copy())
+		results, err := query.GetAllResults()
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		if len(results) == 0 {
+			fmt.Println(false)
+		} else {
+			for _, bindings := range results {
+				if len(bindings) == 0 {
+					fmt.Println(true)
+				} else {
+					for k, v := range bindings {
+						switch v := v.(type) {
+						// print strings with quotes but not variables or other types represented by strings
+						case string:
+							fmt.Printf("%v = %#v\n", k, v)
+						default:
+							fmt.Printf("%v = %v\n", k, v)
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 /*
