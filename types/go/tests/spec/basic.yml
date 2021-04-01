@@ -1,7 +1,0 @@
-name: Basic tests
-policies: []
-description: Test it works
-cases:
-  # Success cases
-  - query: 1 = 1
-    result: [{}]
