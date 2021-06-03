@@ -139,6 +139,7 @@ func (o Oso) IsAllowed(actor interface{}, action interface{}, resource interface
 		return false, err
 	}
 	results, err := query.Next()
+	defer query.Cleanup()
 	if err != nil {
 		return false, err
 	} else if results != nil {
