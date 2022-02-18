@@ -28,7 +28,7 @@
 - Use it:
 
   ```go
-  oso := oso.NewClientWithServiceUrl("https://<tenant>.oso.run")
+  oso := oso.NewClient("https://<tenant>.oso.run")
   allowed, e := oso.Authorize(User{id: 1}, "read", Repo{id: 2})
   if e != nil {
   	log.Fatalln(e)

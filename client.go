@@ -13,11 +13,7 @@ type Client struct {
 	// TODO(gj): configurable logging?
 }
 
-func NewClient() Client {
-	return Client{serviceUrl: "http://localhost:8080"}
-}
-
-func NewClientWithServiceUrl(serviceUrl string) Client {
+func NewClient(serviceUrl string) Client {
 	return Client{serviceUrl}
 }
 

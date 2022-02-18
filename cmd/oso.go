@@ -32,7 +32,7 @@ func (r Repo) Type() string {
 }
 
 func main() {
-	oso := oso.NewClientWithServiceUrl("http://localhost:8080")
+	oso := oso.NewClient("http://localhost:8080")
 	allowed, e := oso.Authorize(User{id: 1}, "read", Repo{id: 2})
 	if e != nil {
 		log.Fatalln(e)
