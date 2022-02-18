@@ -35,8 +35,3 @@
   }
   log.Printf("Authorize: %v\n", allowed)
   ```
-
-## Testing
-
-- Run local `oso-service`: `cargo run -- run`
-- `go run cmd/oso.go`
